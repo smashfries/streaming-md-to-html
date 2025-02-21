@@ -6,6 +6,7 @@ export class MdToHtml {
     lines: Node[] = [];
     currentNode: Node | null = null;
     isLineEmpty: boolean = true;
+    lastListNode: Node | null = null; // Track last list node
 
     constructor() {
         this.md = '';
@@ -19,7 +20,7 @@ export class MdToHtml {
         this.currentNode = textNode;
     }
 
-    append(md: string, p0?: any): { lastLineUpdated?: Node, newLines?: Node[] } {
+    append(md: string): { lastLineUpdated?: Node, newLines?: Node[] }  {
         console.log('md', md)
         this.md += md;
 
@@ -47,6 +48,45 @@ export class MdToHtml {
                 
             this.currentNode.appendValue(char);
 
+            // Detect ordered, unordered, and task lists
+            const listMatch = md.slice(i).match(/^(\s*)([-+]|\d+\.)\s+(?:\[(x| )\]\s+)?(.*)/);
+            if (listMatch) {
+                const indentation = listMatch[1].length;
+                const listType = /^\d+\./.test(listMatch[2]) ? 'ol' : 'ul';
+                const isTask = listMatch[3] !== undefined;
+                const isChecked = listMatch[3] === 'x';
+
+                // Extract list text BEFORE modifying `currentNode.value`
+                let listItemText = listMatch[4].trim();
+
+                i += listMatch[0].length - 1; // Move cursor to end of the list item
+
+                if (this.currentNode.parent?.type === 'paragraph') {
+                    this.lines.pop(); // Remove last paragraph to avoid unnecessary <p> around lists
+                }
+
+                // Find or create the parent list
+                if (!this.lastListNode || this.lastListNode.type !== listType) {
+                    this.lastListNode = new Node(listType, null, []);
+                    this.lines.push(this.lastListNode);
+                }
+
+                // Create list item
+                const listItem = new Node('li', null, []);
+                if (isTask) {
+                    const checkbox = new Node('checkbox', isChecked ? 'checked' : '', []);
+                    listItem.appendChild(checkbox);
+                }
+
+                // Ensure list item text is properly added with NO trailing characters
+                const newTextNode = new Node('text', listItemText, []);
+                listItem.appendChild(newTextNode);
+                this.lastListNode.appendChild(listItem);
+
+                this.currentNode = newTextNode;
+                continue;
+            }
+
             // Detect opening code block with possible language
             if (char === '`' && md.slice(i, i + 3) === '```' && this.currentNode.parent?.type === 'paragraph') {
                 i += 2; // Move past ```
@@ -56,7 +96,7 @@ export class MdToHtml {
                 const match = restOfMd.match(/^([\w+-]+)/);
                 const language = match ? match[1].trim() : null;
 
-                console.log('✅ Extracted Language:', language);
+                console.log('Extracted Language:', language);
 
                 // Move past language identifier if present
                 if (language) {
@@ -66,7 +106,7 @@ export class MdToHtml {
                 const codeNode = new Node('code', null, []);
                 codeNode.language = language;
 
-                // ✅ Ensure no stray backtick remain inside the code block
+                // Ensure no stray backtick remain inside the code block
                 if (this.currentNode.value) {
                     this.currentNode.value = this.currentNode.value.replace(/`$/, '').trim();
                 }
@@ -90,12 +130,12 @@ export class MdToHtml {
                     const inlineCodeText = md.slice(i + 1, j).trim();
                     i = j; // Move past closing backtick
 
-                    console.log('✅ Extracted Inline Code:', inlineCodeText);
+                    console.log('Extracted Inline Code:', inlineCodeText);
 
                     const codeNode = new Node('code-inline', null, []);
                     const textNode = new Node('text', inlineCodeText, []);
 
-                    // ✅ Ensure no stray backtick remain inside the code block
+                    // Ensure no stray backtick remain inside the code block
                     if (this.currentNode.value) {
                         this.currentNode.value = this.currentNode.value.replace(/`$/, '').trim();
                     }
@@ -191,6 +231,7 @@ export class MdToHtml {
 
     getHtml(lines: Node[]): string {
         let html = '';
+        let lastListType: string | null = null; // Track last list type
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -206,6 +247,23 @@ export class MdToHtml {
                 case 'code':
                     const languageClass = line.language ? ` class="language-${line.language}"` : '';
                     html += `<pre><code${languageClass}>${this.getHtml(line.children || [])}</code></pre>`;
+                    break;
+                case 'ul':
+                case 'ol':
+                    if (line.type !== lastListType) {
+                        html += `<${line.type}>`;
+                    }
+                    html += this.getHtml(line.children || []);
+                    if (i === lines.length - 1 || lines[i + 1].type !== line.type) {
+                        html += `</${line.type}>`;
+                    }
+                    lastListType = line.type;
+                    break;
+                case 'li':
+                    html += `<li>${this.getHtml(line.children || [])}</li>`;
+                    break;
+                case 'checkbox':
+                    html += `<input type="checkbox" ${line.value === 'checked' ? 'checked' : ''}>`;
                     break;
                 case 'h1':
                 case 'h2':
@@ -285,4 +343,22 @@ console.log('world')
 \`\`\`
 `).newLines?.forEach(line => {console.log(line)}));
 
+mdToHtml.append(`- Item 1
+- Item 2
+    - Item 2.1
+    - Item 2.2
+- Item 3
+`);
+// console.log(mdToHtml.getHtml(mdToHtml.lines));
+
+mdToHtml.append(`1. First
+2. Second
+3. Third
+`);
+// console.log(mdToHtml.getHtml(mdToHtml.lines));
+
+mdToHtml.append(`- [ ] Task 1
+- [x] Task 2
+- [ ] Task 3
+`);
 console.log(mdToHtml.getHtml(mdToHtml.lines));
