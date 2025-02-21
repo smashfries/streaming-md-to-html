@@ -20,6 +20,7 @@ export class MdToHtml {
     }
 
     append(md: string): { lastLineUpdated?: Node, newLines?: Node[] } {
+        console.log('md', md)
         this.md += md;
 
         const lineCount = this.lines.length;
@@ -31,7 +32,7 @@ export class MdToHtml {
 
         for (let i = 0; i < md.length; i++) {
             const char = md[i];
-            if (char === '\n') {
+            if (char === '\n' && this.currentNode.parent?.type !== 'code') {
                 const paragraphNode = new Node('paragraph', null, []);
                 const textNode = new Node('text', '', []);
 
@@ -45,6 +46,33 @@ export class MdToHtml {
             if (!this.currentNode) continue;
                 
             this.currentNode.appendValue(char);
+
+            if (this.currentNode.value?.endsWith('```') && this.currentNode.parent?.type === 'paragraph') {
+                this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
+                
+                const codeNode = new Node('code', null, []);
+                const textNode = new Node('text', '', []);
+
+                codeNode.appendChild(textNode);
+                this.lines.push(codeNode);
+
+                this.currentNode = textNode;
+                continue;
+            }
+
+            if (this.currentNode.value?.endsWith('```')) {
+                this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
+
+                const paragraphNode = new Node('paragraph', null, []);
+                const textNode = new Node('text', '', []);
+
+                paragraphNode.appendChild(textNode);
+                this.lines.push(paragraphNode);
+
+                this.currentNode = textNode;
+                continue;
+            }
+
             const matchedHeading = this.matchHeading(this.currentNode.value || '');
             if (matchedHeading) {
                 const lastLine = this.lines[this.lines.length - 1];
@@ -118,6 +146,8 @@ export class MdToHtml {
             console.log('line', line)
             if (line.type === 'paragraph') {
                 html += `<p>${this.getHtml(line.children || [])}</p>`;
+            } else if (line.type === 'code') {
+                html += `<code>${this.getHtml(line.children || [])}</code>`;
             } else if (line.type === 'h1') {
                 html += `<h1>${this.getHtml(line.children || [])}</h1>`;
             } else if (line.type === 'h2') {
@@ -178,3 +208,12 @@ how are you
 `));
 
 console.log(mdToHtml.append(`**hello**`));
+
+console.log(mdToHtml.append(`
+
+\`\`\`
+hello
+\`\`\`
+`).newLines?.forEach(line => {console.log(line)}));
+
+console.log(mdToHtml.getHtml(mdToHtml.lines));

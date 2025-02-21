@@ -1,4 +1,4 @@
-type NodeType = 'paragraph' | 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'strong' | 'em';
+type NodeType = 'paragraph' | 'code' | 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'strong' | 'em';
 
 export class Node {
     type: NodeType;
