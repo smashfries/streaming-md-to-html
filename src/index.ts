@@ -19,7 +19,7 @@ export class MdToHtml {
         this.currentNode = textNode;
     }
 
-    append(md: string): { lastLineUpdated?: Node, newLines?: Node[] } {
+    append(md: string, p0?: any): { lastLineUpdated?: Node, newLines?: Node[] } {
         console.log('md', md)
         this.md += md;
 
@@ -47,17 +47,68 @@ export class MdToHtml {
                 
             this.currentNode.appendValue(char);
 
-            if (this.currentNode.value?.endsWith('```') && this.currentNode.parent?.type === 'paragraph') {
-                this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
+            // Detect opening code block with possible language
+            if (char === '`' && md.slice(i, i + 3) === '```' && this.currentNode.parent?.type === 'paragraph') {
+                i += 2; // Move past ```
                 
-                const codeNode = new Node('code', null, []);
-                const textNode = new Node('text', '', []);
+                // Look ahead for language
+                const restOfMd = md.slice(i + 1);
+                const match = restOfMd.match(/^([\w+-]+)/);
+                const language = match ? match[1].trim() : null;
 
+                console.log('✅ Extracted Language:', language);
+
+                // Move past language identifier if present
+                if (language) {
+                    i += language.length;
+                }
+
+                const codeNode = new Node('code', null, []);
+                codeNode.language = language;
+
+                // ✅ Ensure no stray backtick remain inside the code block
+                if (this.currentNode.value) {
+                    this.currentNode.value = this.currentNode.value.replace(/`$/, '').trim();
+                }
+
+                const textNode = new Node('text', '', []);
                 codeNode.appendChild(textNode);
                 this.lines.push(codeNode);
 
                 this.currentNode = textNode;
                 continue;
+            }
+
+            // Detect inline code ex- (`{a+b}`)
+            if (char === '`' && md[i + 1] !== '`' && this.currentNode.parent?.type !== 'code') { 
+                let j = i + 1;
+                while (j < md.length && md[j] !== '`') {
+                    j++;
+                }
+
+                if (j < md.length) { // Closing backtick found
+                    const inlineCodeText = md.slice(i + 1, j).trim();
+                    i = j; // Move past closing backtick
+
+                    console.log('✅ Extracted Inline Code:', inlineCodeText);
+
+                    const codeNode = new Node('code-inline', null, []);
+                    const textNode = new Node('text', inlineCodeText, []);
+
+                    // ✅ Ensure no stray backtick remain inside the code block
+                    if (this.currentNode.value) {
+                        this.currentNode.value = this.currentNode.value.replace(/`$/, '').trim();
+                    }
+
+                    codeNode.appendChild(textNode);
+                    this.currentNode.parent?.appendChild(codeNode);
+
+                    const newTextNode = new Node('text', '', []);
+                    this.currentNode.parent?.appendChild(newTextNode);
+                    this.currentNode = newTextNode;
+
+                    continue;
+                }
             }
 
             if (this.currentNode.value?.endsWith('```')) {
@@ -143,33 +194,39 @@ export class MdToHtml {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            console.log('line', line)
-            if (line.type === 'paragraph') {
-                html += `<p>${this.getHtml(line.children || [])}</p>`;
-            } else if (line.type === 'code') {
-                html += `<code>${this.getHtml(line.children || [])}</code>`;
-            } else if (line.type === 'h1') {
-                html += `<h1>${this.getHtml(line.children || [])}</h1>`;
-            } else if (line.type === 'h2') {
-                html += `<h2>${this.getHtml(line.children || [])}</h2>`;
-            } else if (line.type === 'h3') {
-                html += `<h3>${this.getHtml(line.children || [])}</h3>`;
-            }
-              else if (line.type === 'h4') {
-                html += `<h4>${this.getHtml(line.children || [])}</h4>`;
-            }
-              else if (line.type === 'h5') {
-                html += `<h5>${this.getHtml(line.children || [])}</h5>`;
-            }
-              else if (line.type === 'h6') {
-                html += `<h6>${this.getHtml(line.children || [])}</h6>`;
-            } else if (line.type === 'strong') {
-                html += `<strong>${this.getHtml(line.children || [])}</strong>`;
-            } else if (line.type === 'em') {
-                html += `<em>${this.getHtml(line.children || [])}</em>`;
-            }
-            else if (line.type === 'text') {
-                html += line.value || '';
+            console.log('line', line);
+        
+            switch (line.type) {
+                case 'paragraph':
+                    html += `<p>${this.getHtml(line.children || [])}</p>`;
+                    break;
+                case 'code-inline':
+                    html += `<code>${this.getHtml(line.children || [])}</code>`;
+                    break;
+                case 'code':
+                    const languageClass = line.language ? ` class="language-${line.language}"` : '';
+                    html += `<pre><code${languageClass}>${this.getHtml(line.children || [])}</code></pre>`;
+                    break;
+                case 'h1':
+                case 'h2':
+                case 'h3':
+                case 'h4':
+                case 'h5':
+                case 'h6':
+                    html += `<${line.type}>${this.getHtml(line.children || [])}</${line.type}>`;
+                    break;
+                case 'strong':
+                    html += `<strong>${this.getHtml(line.children || [])}</strong>`;
+                    break;
+                case 'em':
+                    html += `<em>${this.getHtml(line.children || [])}</em>`;
+                    break;
+                case 'text':
+                    html += line.value || '';
+                    break;
+                default:
+                    console.warn(`Unknown line type: ${line.type}`);
+                    break;
             }
         }
 
@@ -202,7 +259,7 @@ mdToHtml.append(`he#l__lo__s hello *hi* dk\n`);
 console.log(mdToHtml.append(`
 ## a
 
-hello
+\`javascript\`
 
 how are you
 `));
@@ -211,8 +268,20 @@ console.log(mdToHtml.append(`**hello**`));
 
 console.log(mdToHtml.append(`
 
+\`\`\`python
+print('hello')
 \`\`\`
-hello
+
+\`\`\`javascript
+console.log('world')
+\`\`\`
+
+\`\`\`html
+<h1>hello</h1>
+\`\`\`
+
+\`\`\`
+<h1>hello</h1>
 \`\`\`
 `).newLines?.forEach(line => {console.log(line)}));
 
