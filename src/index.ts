@@ -110,7 +110,7 @@ export class MdToHtml {
         }
     }
 
-    private getHtml(lines: Node[]): string {
+    getHtml(lines: Node[]): string {
         let html = '';
 
         for (let i = 0; i < lines.length; i++) {
