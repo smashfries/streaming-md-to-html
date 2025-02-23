@@ -211,9 +211,10 @@ console.log(mdToHtml.append(`**hello**`));
 
 console.log(mdToHtml.append(`
 
-\`\`\`
+\`\`\`python
 hello
 \`\`\`
 `).newLines?.forEach(line => {console.log(line)}));
 
 console.log(mdToHtml.getHtml(mdToHtml.lines));
+
