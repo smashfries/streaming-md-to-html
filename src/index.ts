@@ -1,5 +1,9 @@
-
 import { Node } from './node';
+import Prism from 'prismjs'
+import loadLanguages from 'prismjs/components/index.js'
+
+loadLanguages(['python'])
+
 
 export class MdToHtml {
     md: string;
@@ -9,7 +13,7 @@ export class MdToHtml {
 
     constructor() {
         this.md = '';
-        
+
         const paragraphNode = new Node('paragraph', null, []);
         const textNode = new Node('text', '', []);
 
@@ -44,12 +48,21 @@ export class MdToHtml {
             }
 
             if (!this.currentNode) continue;
-                
+
             this.currentNode.appendValue(char);
+
+            if (this.currentNode.parent?.type === 'code' && !this.currentNode.parent?.metaData && this.currentNode.value?.endsWith('\n')) {
+                this.currentNode.parent.metaData = {
+                    language: this.currentNode.value.slice(0, -1),
+                }
+                console.log('language', this.currentNode.parent?.metaData?.language)
+                this.currentNode.value = '';
+                continue;
+            }
 
             if (this.currentNode.value?.endsWith('```') && this.currentNode.parent?.type === 'paragraph') {
                 this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
-                
+
                 const codeNode = new Node('code', null, []);
                 const textNode = new Node('text', '', []);
 
@@ -62,6 +75,8 @@ export class MdToHtml {
 
             if (this.currentNode.value?.endsWith('```')) {
                 this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
+                console.log('language', this.currentNode.parent?.metaData?.language)
+                this.currentNode.value = Prism.highlight(this.currentNode.value || '', Prism.languages[this.currentNode.parent?.metaData?.language || 'plaintext'], this.currentNode.parent?.metaData?.language || 'plaintext');
 
                 const paragraphNode = new Node('paragraph', null, []);
                 const textNode = new Node('text', '', []);
@@ -132,7 +147,7 @@ export class MdToHtml {
             }
         } else {
             return {
-                lastLineUpdated: this.lines[lineCount-1],
+                lastLineUpdated: this.lines[lineCount - 1],
                 newLines: this.lines.slice(lineCount),
             }
         }
@@ -143,33 +158,40 @@ export class MdToHtml {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            console.log('line', line)
-            if (line.type === 'paragraph') {
-                html += `<p>${this.getHtml(line.children || [])}</p>`;
-            } else if (line.type === 'code') {
-                html += `<code>${this.getHtml(line.children || [])}</code>`;
-            } else if (line.type === 'h1') {
-                html += `<h1>${this.getHtml(line.children || [])}</h1>`;
-            } else if (line.type === 'h2') {
-                html += `<h2>${this.getHtml(line.children || [])}</h2>`;
-            } else if (line.type === 'h3') {
-                html += `<h3>${this.getHtml(line.children || [])}</h3>`;
-            }
-              else if (line.type === 'h4') {
-                html += `<h4>${this.getHtml(line.children || [])}</h4>`;
-            }
-              else if (line.type === 'h5') {
-                html += `<h5>${this.getHtml(line.children || [])}</h5>`;
-            }
-              else if (line.type === 'h6') {
-                html += `<h6>${this.getHtml(line.children || [])}</h6>`;
-            } else if (line.type === 'strong') {
-                html += `<strong>${this.getHtml(line.children || [])}</strong>`;
-            } else if (line.type === 'em') {
-                html += `<em>${this.getHtml(line.children || [])}</em>`;
-            }
-            else if (line.type === 'text') {
-                html += line.value || '';
+            switch (line.type) {
+                case 'paragraph':
+                    html += `<p>${this.getHtml(line.children || [])}</p>`;
+                    break;
+                case 'code':
+                    html += `<code class="language-${line.metaData?.language}">${this.getHtml(line.children || [])}</code>`;
+                    break;
+                case 'h1':
+                    html += `<h1>${this.getHtml(line.children || [])}</h1>`;
+                    break;
+                case 'h2':
+                    html += `<h2>${this.getHtml(line.children || [])}</h2>`;
+                    break;
+                case 'h3':
+                    html += `<h3>${this.getHtml(line.children || [])}</h3>`;
+                    break;
+                case 'h4':
+                    html += `<h4>${this.getHtml(line.children || [])}</h4>`;
+                    break;
+                case 'h5':
+                    html += `<h5>${this.getHtml(line.children || [])}</h5>`;
+                    break;
+                case 'h6':
+                    html += `<h6>${this.getHtml(line.children || [])}</h6>`;
+                    break;
+                case 'strong':
+                    html += `<strong>${this.getHtml(line.children || [])}</strong>`;
+                    break;
+                case 'em':
+                    html += `<em>${this.getHtml(line.children || [])}</em>`;
+                    break;
+                case 'text':
+                    html += line.value || '';
+                    break;
             }
         }
 
@@ -185,36 +207,3 @@ export class MdToHtml {
         return null;
     }
 }
-
-const mdToHtml = new MdToHtml();
-mdToHtml.append(`Hello
-
-World
-
-he#llo
-### hello`);
-
-mdToHtml.append(`Hello`);
-
-mdToHtml.append(`World\n`);
-mdToHtml.append(`he#l__lo__s hello *hi* dk\n`);
-// console.log(mdToHtml.append(`## a`));
-console.log(mdToHtml.append(`
-## a
-
-hello
-
-how are you
-`));
-
-console.log(mdToHtml.append(`**hello**`));
-
-console.log(mdToHtml.append(`
-
-\`\`\`python
-hello
-\`\`\`
-`).newLines?.forEach(line => {console.log(line)}));
-
-console.log(mdToHtml.getHtml(mdToHtml.lines));
-

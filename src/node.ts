@@ -5,6 +5,7 @@ export class Node {
     value: string | null;
     children: Node[];
     parent: Node | null;
+    metaData: Record<string, any> | undefined;
 
     constructor(type: NodeType, value: string | null, children: Node[]) {
         this.type = type;
