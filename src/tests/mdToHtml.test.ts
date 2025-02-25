@@ -46,7 +46,7 @@ describe('MdToHtml', () => {
         parser.append('```javascript\nconsole.log("Hello");\n```');
 
         const html = parser.getHtml(parser.lines);
-        expect(html).toContain('<pre><code class="language-javascript">\nconsole.log("Hello");\n</code></pre>');
+        expect(html).toContain('<pre><code class=\"language-javascript\">\nconsole<span class=\"token punctuation\">.</span><span class=\"token function\">log</span><span class=\"token punctuation\">(</span><span class=\"token string\">\"Hello\"</span><span class=\"token punctuation\">)</span><span class=\"token punctuation\">;</span>\n</code></pre>');
     });
 
     // test for unordered lists

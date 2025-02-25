@@ -5,14 +5,13 @@ export class Node {
     value: string | null;
     children: Node[];
     parent: Node | null;
-    language?: string | null; // Optional property to store language
+    metaData: Record<string, any> | undefined;
 
     constructor(type: NodeType, value: string | null, children: Node[]) {
         this.type = type;
         this.value = value;
         this.children = children;
         this.parent = null;
-        this.language = null; // Initialize language as null
     }
 
     appendChild(node: Node) {

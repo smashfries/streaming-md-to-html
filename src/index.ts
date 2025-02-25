@@ -1,5 +1,9 @@
-
 import { Node } from './node';
+import Prism from 'prismjs'
+import loadLanguages from 'prismjs/components/index.js'
+
+loadLanguages(['python'])
+
 
 export class MdToHtml {
     md: string;
@@ -10,7 +14,7 @@ export class MdToHtml {
 
     constructor() {
         this.md = '';
-        
+
         const paragraphNode = new Node('paragraph', null, []);
         const textNode = new Node('text', '', []);
 
@@ -48,8 +52,17 @@ export class MdToHtml {
 
             this.isLineEmpty = false;
             if (!this.currentNode) continue;
-                
+
             this.currentNode.appendValue(char);
+
+            // if (this.currentNode.parent?.type === 'code' && !this.currentNode.parent?.metaData && this.currentNode.value?.endsWith('\n')) {
+            //     this.currentNode.parent.metaData = {
+            //         language: this.currentNode.value.slice(0, -1),
+            //     }
+            //     console.log('language', this.currentNode.parent?.metaData?.language)
+            //     this.currentNode.value = '';
+            //     continue;
+            // }
 
             // Detect headings (h1 - h6)
             const headingMatch = md.slice(i).match(/^(#{1,6})\s+(.*)/);
@@ -134,7 +147,7 @@ export class MdToHtml {
                 }
 
                 const codeNode = new Node('code', null, []);
-                codeNode.language = language;
+                codeNode.metaData = { language };
 
                 // Ensure no stray backtick remain inside the code block
                 if (this.currentNode.value) {
@@ -183,6 +196,8 @@ export class MdToHtml {
 
             if (this.currentNode.value?.endsWith('```')) {
                 this.currentNode.value = this.currentNode.value?.replace(/```$/, '');
+                console.log('language', this.currentNode.parent?.metaData?.language)
+                this.currentNode.value = Prism.highlight(this.currentNode.value || '', Prism.languages[this.currentNode.parent?.metaData?.language || 'plaintext'], this.currentNode.parent?.metaData?.language || 'plaintext');
 
                 const paragraphNode = new Node('paragraph', null, []);
                 const textNode = new Node('text', '', []);
@@ -244,7 +259,7 @@ export class MdToHtml {
             }
         } else {
             return {
-                lastLineUpdated: this.lines[lineCount-1],
+                lastLineUpdated: this.lines[lineCount - 1],
                 newLines: this.lines.slice(lineCount),
             }
         }
@@ -267,7 +282,7 @@ export class MdToHtml {
                     html += `<code>${this.getHtml(line.children || [])}</code>`;
                     break;
                 case 'code':
-                    const languageClass = line.language ? ` class="language-${line.language}"` : '';
+                    const languageClass = line.metaData?.language ? ` class="language-${line.metaData?.language}"` : '';
                     html += `<pre><code${languageClass}>${this.getHtml(line.children || [])}</code></pre>`;
                     break;
                 case 'ul':
