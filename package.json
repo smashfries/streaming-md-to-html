@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsc -w",
-    "build": "tsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node18 --outdir=dist --format=esm --sourcemap --packages=external"
+    "build": "tsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node18 --outdir=dist --format=esm --sourcemap --packages=external",
+    "test": "exec jest"
   },
   "keywords": [
     "markdown",

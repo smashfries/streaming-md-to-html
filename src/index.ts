@@ -34,6 +34,7 @@ export class MdToHtml {
         for (let i = 0; i < md.length; i++) {
             const char = md[i];
             if (char === '\n' && this.currentNode.parent?.type !== 'code') {
+                if (this.isLineEmpty) continue; // Prevent extra empty paragraphs
                 const paragraphNode = new Node('paragraph', null, []);
                 const textNode = new Node('text', '', []);
 
@@ -41,14 +42,43 @@ export class MdToHtml {
                 this.lines.push(paragraphNode);
 
                 this.currentNode = textNode;
+                this.isLineEmpty = true;
                 continue;
             }
 
+            this.isLineEmpty = false;
             if (!this.currentNode) continue;
                 
             this.currentNode.appendValue(char);
 
-            // Detect ordered, unordered, and task lists
+            // Detect headings (h1 - h6)
+            const headingMatch = md.slice(i).match(/^(#{1,6})\s+(.*)/);
+            if (headingMatch) {
+                const level = headingMatch[1].length;
+                const headingText = headingMatch[2].trim();
+
+                i += headingMatch[0].length - 1; // Move cursor to end of heading line
+
+                // Ensure the previous paragraph is removed if it's empty
+                if (this.currentNode.parent?.type === 'paragraph' && this.currentNode.value?.trim() === '') {
+                    this.lines.pop();
+                }
+                //@ts-expect-error
+                const headingNode = new Node(`h${level}`, null, []);
+
+                // Ensure no # remain in the heading text
+                if(this.currentNode.value) {
+                    this.currentNode.value = this.currentNode.value.replace(/#/g, '');
+                }
+                const textNode = new Node('text', headingText, []);
+                headingNode.appendChild(textNode);
+                this.lines.push(headingNode);
+
+                this.currentNode = textNode;
+                continue;
+            }
+
+            // Detect Ordered, Unordered, and Task Lists
             const listMatch = md.slice(i).match(/^(\s*)([-+]|\d+\.)\s+(?:\[(x| )\]\s+)?(.*)/);
             if (listMatch) {
                 const indentation = listMatch[1].length;
@@ -164,15 +194,6 @@ export class MdToHtml {
                 continue;
             }
 
-            const matchedHeading = this.matchHeading(this.currentNode.value || '');
-            if (matchedHeading) {
-                const lastLine = this.lines[this.lines.length - 1];
-                lastLine.setType(`h${matchedHeading}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
-
-                this.currentNode.value = this.currentNode.value?.replace(/^(#{1,6})\s/, '') || '';
-                continue;
-            }
-
             const strongMatch = this.currentNode.value?.match(/(\*\*|__)(.+)(\1)/);
             if (strongMatch) {
                 const text = strongMatch[2] as string;
@@ -239,6 +260,7 @@ export class MdToHtml {
         
             switch (line.type) {
                 case 'paragraph':
+                    if (line.children?.length === 1 && line.children[0].value === '') continue;
                     html += `<p>${this.getHtml(line.children || [])}</p>`;
                     break;
                 case 'code-inline':
@@ -263,7 +285,7 @@ export class MdToHtml {
                     html += `<li>${this.getHtml(line.children || [])}</li>`;
                     break;
                 case 'checkbox':
-                    html += `<input type="checkbox" ${line.value === 'checked' ? 'checked' : ''}>`;
+                    html += `<input type="checkbox"${line.value === 'checked' ? ' checked' : ''}>`;
                     break;
                 case 'h1':
                 case 'h2':
