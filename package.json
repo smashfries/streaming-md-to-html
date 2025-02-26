@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "tsc -w",
     "build": "tsc --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node18 --outdir=dist --format=esm --sourcemap --packages=external"
@@ -23,5 +23,9 @@
   },
   "dependencies": {
     "prismjs": "^1.29.0"
-  }
+  },
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ]
 }
